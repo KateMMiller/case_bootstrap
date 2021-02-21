@@ -59,14 +59,9 @@ rand_diff <- function(df, col1, col2){
 list1 <- c("seed_den_c", "sap_den_c", "stock_c")
 list2 <- c("seed_den_q", "sap_den_q", "stock_q")
 
-for(i in seq_along(list1)){
-  col1 <- list1[i]
-  col2 <- list2[i]
-  reg_wide2 <- rand_diff(reg_wide, col1, col2)
-}
-
-
-head(reg_wide2)
+reg_wide2 <- rand_diff(reg_wide, list1[1], list2[1])
+reg_wide2 <- rand_diff(reg_wide2, list1[2], list2[2])
+reg_wide2 <- rand_diff(reg_wide2, list1[3], list2[3])
 
 summary(lm(seed_den_pctdiff ~ seed_den_c, data = reg_wide2)) # slope non-sign
 cor(abs(reg_wide2$seed_den_pctdiff), reg_wide2$seed_den_c) # slightly neg. corr
@@ -82,15 +77,13 @@ cor(abs(reg_wide2$stock_pctdiff), reg_wide2$stock_c) # slightly neg. corr
 
 # Create density functions to generate random values from. These are based on
 # percent difference, so need to multiple the new r variable * x.
-r_seed <- new_r(reg_wide$seed_den_pctdiff, type = "continuous") 
-r_seed2 <- new_r(sample(reg_wide$seed_den_pctdiff, 10000, replace = T), type = "continuous") 
-?new_r
-r_sap <- new_r(reg_wide$sap_den_pctdiff, type = "continuous")
-r_stock <- new_r(reg_wide$stock_pctdiff, type = "continuous")
+r_seed <- new_r(reg_wide2$seed_den_pctdiff, type = "continuous") 
+r_seed2 <- new_r(sample(reg_wide2$seed_den_pctdiff, 10000, replace = T), type = "continuous") 
+r_sap <- new_r(reg_wide2$sap_den_pctdiff, type = "continuous")
+r_stock <- new_r(reg_wide2$stock_pctdiff, type = "continuous")
 
-plot(density(r_seed(10000))) # I prefer r_seed b/c smoother
-plot(density(r_seed2(10000)))
-
-plot(density(r_sap(10000)))
-plot(density(r_stock(10000)))
+# plot(density(r_seed(10000))) # I prefer r_seed b/c smoother
+# plot(density(r_seed2(10000)))
+# plot(density(r_sap(10000)))
+# plot(density(r_stock(10000)))
 
