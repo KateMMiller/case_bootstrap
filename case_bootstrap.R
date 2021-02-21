@@ -1,7 +1,7 @@
 library(tidyverse)
 #library(broom)
 library(stringr)
-library(forestNETN)
+library(forestNETNarch)
 
 importData()
 
