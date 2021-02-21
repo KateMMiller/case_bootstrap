@@ -1,7 +1,6 @@
 library(tidyverse)
-library(forestNETN)
+library(forestNETNarch)
 source("custom_rdist_from_QAQC.R")
-
 
 reg_4yr <- joinRegenData(park = "all", from = 2016, to = 2019, speciesType = "native", canopyForm = "canopy") %>% 
            group_by(Unit_Code, Plot_Name, Year) %>% 
@@ -11,23 +10,17 @@ reg_4yr <- joinRegenData(park = "all", from = 2016, to = 2019, speciesType = "na
 
 length(unique(reg_4yr$Plot_Name)) - nrow(reg_4yr) # no dups
 head(reg_4yr)
+ncycles = 3
+tot_inc = 0.5 # Overall % increase or by cycle
+tot_inc = 0 # Just add noice
+effect = tot_inc#/(ncycles-1) #50% increase over 3 cycles
 
-effect <- 0.5/2 
-
-reg_4yr <- reg_4yr %>% mutate(seed_den_r = r_seed(1),
-                              sap_den_r = r_sap(1),
-                              stock_den_r = r_sap(1),
-                              seed_den_c2 = seed_den + effect*seed_den + r_seed(1) ,
-                              sap_den_c2 = sap_den + effect*sap_den + r_sap(1),
-                              stock_den_c2 = stock_den + effect*stock_den + r_stock(1),
-                              seed_den_c3 = seed_den + 2*effect*seed_den + r_seed(1) ,
-                              sap_den_c3 = sap_den + 2*effect*sap_den + r_sap(1),
-                              stock_den_c3 = stock_den + 2*effect*stock_den + r_stock(1))
-
-head(reg_4yr)
-
-# cols <- c("seed_den_c2", "seed_den_c3")
-# reg_4yr[, cols][reg_4yr[, cols] < 0] <- 0
+reg_4yr <- reg_4yr %>% mutate(seed_den_c2 = seed_den + effect*seed_den + r_seed(1)*seed_den ,
+                              sap_den_c2 = sap_den + effect*sap_den + r_sap(1)*sap_den,
+                              stock_den_c2 = stock_den + effect*stock_den + r_stock(1)*stock_den,
+                              seed_den_c3 = seed_den + effect*seed_den_c2 + r_seed(1)*seed_den,
+                              sap_den_c3 = sap_den + effect*sap_den_c2 + r_sap(1)*sap_den,
+                              stock_den_c3 = stock_den + effect*stock_den_c2 + r_stock(1)*stock_den)
 
 reg_seed_long <- reg_4yr %>% select(Unit_Code, Plot_Name, seed_den, seed_den_c2, seed_den_c3) %>% 
                  pivot_longer(cols = c(seed_den, seed_den_c2, seed_den_c3), 
@@ -39,17 +32,37 @@ reg_seed_long <- reg_4yr %>% select(Unit_Code, Plot_Name, seed_den, seed_den_c2,
 test50 <- lm(seed_den ~ cycle_num, data = reg_seed_long)
 summary(test50)
 
-ggplot(data = reg_seed_long, aes(x = cycle, y = seed_den, group = Plot_Name, color = Unit_Code))+
-  geom_point()+ geom_line()+
-  facet_wrap(~Unit_Code, scales = "free")
+new_test <- data.frame(cycle_num = c(1,2,3))
+predict(test50, newdata = new_test)
 
-ggplot(data = reg_4yr, aes(x = sap_den, y = sap_den_new20, group = Unit_Code, color = Unit_Code))+
-  geom_point()+ geom_smooth()+
-  facet_wrap(~Unit_Code, scales = "free")
+fake <- ggplot(data = reg_seed_long, aes(x = cycle_num, y = seed_den, color = Unit_Code))+
+  geom_point(alpha = 0.4)+ 
+  geom_line(aes(group = Plot_Name), alpha = 0.2)+ 
+  theme_FHM()+
+  ylab("fake seedling dens.")+
+  #stat_smooth(method = 'lm', formula = y~x, se = FALSE, col = 'black')+
+  facet_wrap(~Unit_Code, scales = "free")+
+  theme(legend.position = 'none')
 
-ggplot(data = reg_4yr, aes(x = stock_den, y = stock_den_new20, group = Unit_Code, color = Unit_Code))+
-  geom_point()+ geom_smooth()+
-  facet_wrap(~Unit_Code, scales = "free")
 
-test20b <- lm(sap_den_new20 ~ sap_den, data = reg_4yr)
-summary(test20b)
+reg_3cyc <- joinRegenData(park = "all", from = 2008, to = 2019, speciesType = "native", canopyForm = "canopy") %>% 
+  group_by(Unit_Code, Plot_Name, Year) %>% 
+  summarize(seed_den = sum(seed.den),
+            sap_den = sum(sap.den),
+            stock_den = sum(stock)) %>% 
+  mutate(cycle = case_when(Year < 2012 ~ 1,
+                           between(Year, 2012, 2015) ~ 2,
+                           Year > 2015 ~ 3))
+
+real <- ggplot(data = reg_3cyc, aes(x = cycle, y = seed_den, color = Unit_Code))+
+  geom_point(alpha = 0.4)+ 
+  geom_line(aes(group = Plot_Name), alpha = 0.2)+ 
+  theme_FHM()+
+  ylab("real seedling dens.")+
+  #stat_smooth(method = 'lm', formula = y~x, se = FALSE, col = 'black')+
+  facet_wrap(~Unit_Code, scales = "free")+
+  theme(legend.position = 'none')
+
+# Need to control the scales between fake and real for better check
+cowplot::plot_grid(fake, real, ncol = 2)
+?plot_grid
